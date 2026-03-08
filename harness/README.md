@@ -163,7 +163,7 @@ The client pod is where the MLPerf harness tests will run. It must run inside th
 
 ### Prerequisites
 
-The client pod runs with `privileged: true` to allow installing system packages and creating directories. On standard Kubernetes this works out of the box. On **OpenShift**, if you are a cluster admin creating the pod, no extra steps are needed. If you are a non-admin user, ask a cluster admin to grant the `privileged` SCC to the default service account first (one-time per namespace):
+The client pod runs with `privileged: true` so it can install system packages via `apt-get` and create directories like `/workspace`. On standard Kubernetes this works out of the box. On **OpenShift**, if you are a cluster admin creating the pod, no extra steps are needed. Non-admin users need to run the following command to allow privileged pods in their namespace, since OpenShift blocks them by default:
 
 ```bash
 oc adm policy add-scc-to-user privileged -z default -n <namespace>

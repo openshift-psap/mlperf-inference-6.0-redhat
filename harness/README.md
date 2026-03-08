@@ -161,6 +161,14 @@ NAMESPACE=my-namespace LLMD_DIR=/home/user/llm-d bash deploy_gptoss120b_v050.sh 
 
 The client pod is where the MLPerf harness tests will run. It must run inside the cluster to connect to the LLM-D API server.
 
+### Prerequisites
+
+The client pod runs with `privileged: true` to allow installing system packages and creating directories. On standard Kubernetes this works out of the box. On **OpenShift**, if you are a cluster admin creating the pod, no extra steps are needed. If you are a non-admin user, ask a cluster admin to grant the `privileged` SCC to the default service account first (one-time per namespace):
+
+```bash
+oc adm policy add-scc-to-user privileged -z default -n <namespace>
+```
+
 ### Creating the Client Pod
 
 1. **Create the client pod and copy datasets (from your local machine):**

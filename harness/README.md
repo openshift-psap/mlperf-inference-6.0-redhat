@@ -2,6 +2,11 @@
 
 This guide provides instructions for setting up and running MLPerf Inference benchmarks for GPT-OSS-120B using llm-d and the harness framework.
 
+For latest setup instructions and code 
+- Please clone the repo https://github.com/openshift-psap/mlperf-inference-6.0-redhat
+- Follow the instructions in [README.md](https://github.com/openshift-psap/mlperf-inference-6.0-redhat/blob/master/harness/README.md)
+- Feel free to open an issue if you run into any blocker
+
 ## Table of Contents
 
 1. [LLM-D Setup](#llm-d-setup)
@@ -409,6 +414,7 @@ oc adm policy add-scc-to-user privileged -z default -n <namespace>
    export MLFLOW_TRACKING_URI=http://mlflow-server:5000
    export MLFLOW_EXPERIMENT_NAME=<your-experiment-name>
    export SERVER_TARGET_QPS=3  # For Server scenario
+   export HF_HOME=/path/to/models
    ```
 
 4. **Verify environment variables:**
@@ -457,6 +463,7 @@ The `run_submission.py` script is used to run MLPerf Inference tests. After sett
    export MLFLOW_TRACKING_URI=http://mlflow-server:5000
    export MLFLOW_EXPERIMENT_NAME=<your-experiment-name>
    export SERVER_TARGET_QPS=3  # For Server scenario
+   export HF_HOME=/path/to/models
    
    # Verify environment variables are set correctly
    print_env_vars
@@ -480,6 +487,8 @@ To run all offline tests (performance, accuracy, and compliance):
 
 ```bash
 python3 scripts/run_submission.py --scenario Offline run-offline
+#Additionally print the commands to a bash script 
+python3 scripts/run_submission.py --print-bash --scenario Offline run-offline >& run.sh 
 ```
 
 This will run:
@@ -493,7 +502,14 @@ This will run:
 To run all server tests (performance, accuracy, and compliance):
 
 ```bash
-python3 scripts/run_submission.py --scenario Server --server-target-qps 3 run-server
+#Print the commands to a bash script
+#For H200
+python3 scripts/run_submission.py --scenario Server --print-bash --server-target-qps 18.25 run-server >& run_server.sh
+
+#For B200
+#Modify the command lines in run_server.sh to add --num-workers 20 to increase the client workers
+python3 scripts/run_submission.py --scenario Server --print-bash --server-target-qps 55 run-server >& run_server.sh
+
 ```
 
 This will run:

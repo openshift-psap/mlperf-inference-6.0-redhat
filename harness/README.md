@@ -5,6 +5,7 @@ This guide provides instructions for setting up and running MLPerf Inference ben
 ## Table of Contents
 
 1. [LLM-D Setup](#llm-d-setup)
+   - [Model Storage Setup](#model-storage-setup)
 2. [Client Pod Setup](#client-pod-setup)
 3. [Running Tests with run_submission.py](#running-tests-with-run_submissionpy)
 4. [Creating Submission](#creating-submission)
@@ -32,7 +33,205 @@ Both configurations include:
 - At least 128 CPUs available on worker nodes (16 CPUs × 8 replicas)
 - 8 NVIDIA GPUs available
 - HuggingFace token secret `llm-d-hf-token` created in your namespace
-- Model artifacts available at the PVC path specified in override files
+- Model artifacts available at the PVC path specified in override files (see [Model Storage Setup](#model-storage-setup))
+
+#### Model Storage Setup
+
+The LLM-D deployment requires a PersistentVolumeClaim (PVC) named `models-storage` to store model artifacts. This PVC is mounted read-only by all model service pods.
+
+**Creating the models-storage PVC:**
+
+1. **Create the PVC in your namespace:**
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: models-storage
+  namespace: llm-d-bench  # Change to your namespace
+  labels:
+    app: llm-d-bench
+    type: workspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti  # Adjust based on your models
+  storageClassName: ibmc-vpc-block-10iops-tier  # Change to your storage class
+```
+
+Apply the PVC:
+```bash
+kubectl apply -f models-storage-pvc.yaml
+```
+
+2. **Storage Class Requirements:**
+
+The PVC requires a storage class that supports:
+- **ReadWriteOnce** access mode
+- **WaitForFirstConsumer** volume binding mode (recommended for GPU node affinity)
+- **Sufficient IOPS** for model loading (10 IOPS/GB or higher recommended)
+
+Common storage classes:
+- IBM Cloud VPC: `ibmc-vpc-block-10iops-tier` (default)
+- AWS EBS: `gp3` or `io2`
+- Azure Disk: `managed-premium`
+- GCP Persistent Disk: `pd-ssd`
+- On-premises: Ceph RBD, local-path, or similar
+
+Check available storage classes:
+```bash
+kubectl get storageclass
+```
+
+3. **Size Requirements:**
+
+The PVC size depends on your models:
+- **GPT-OSS-120B**: ~500GB (FP8 quantized)
+- **Multiple models**: Size of all models + 20% overhead
+
+For this setup, 1Ti is recommended to accommodate multiple models.
+
+4. **Populating the PVC with Models:**
+
+There are several ways to populate the PVC with model artifacts:
+
+**Option A: Using a temporary pod (recommended):**
+
+```bash
+# Create a temporary pod with the PVC mounted as read-write
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: model-loader
+  namespace: llm-d-bench
+spec:
+  containers:
+  - name: loader
+    image: python:3.11-slim
+    command: ["/bin/bash", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: models
+      mountPath: /models
+  volumes:
+  - name: models
+    persistentVolumeClaim:
+      claimName: models-storage
+EOF
+
+# Wait for pod to be ready
+kubectl wait --for=condition=Ready pod/model-loader -n llm-d-bench
+
+# Install HuggingFace CLI
+kubectl exec -n llm-d-bench model-loader -- pip install huggingface-hub
+
+# Download model (replace HF_TOKEN with your token)
+kubectl exec -n llm-d-bench model-loader -- \
+  huggingface-cli download openai/gpt-oss-120b \
+  --local-dir /models/models/openai-gpt-oss-120b \
+  --token YOUR_HF_TOKEN
+
+# Verify model files
+kubectl exec -n llm-d-bench model-loader -- ls -lh /models/models/openai-gpt-oss-120b
+
+# Clean up
+kubectl delete pod model-loader -n llm-d-bench
+```
+
+**Option B: Copy from local directory:**
+
+```bash
+# Create temporary pod (same as above)
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: model-loader
+  namespace: llm-d-bench
+spec:
+  containers:
+  - name: loader
+    image: busybox
+    command: ["/bin/sh", "-c", "sleep infinity"]
+    volumeMounts:
+    - name: models
+      mountPath: /models
+  volumes:
+  - name: models
+    persistentVolumeClaim:
+      claimName: models-storage
+EOF
+
+# Wait for pod
+kubectl wait --for=condition=Ready pod/model-loader -n llm-d-bench
+
+# Copy model files from local machine
+kubectl cp /path/to/local/openai-gpt-oss-120b \
+  llm-d-bench/model-loader:/models/models/openai-gpt-oss-120b
+
+# Clean up
+kubectl delete pod model-loader -n llm-d-bench
+```
+
+**Option C: Mount and use existing storage:**
+
+If you already have models on a network filesystem (NFS, Ceph, etc.), you can:
+- Create a PV/PVC pointing to the existing storage
+- Or copy models from the network filesystem to the PVC using a temporary pod
+
+5. **Expected Directory Structure:**
+
+The PVC should have the following structure:
+
+```
+/models/                              # PVC mount point
+└── models/                           # Models directory
+    ├── openai-gpt-oss-120b/          # GPT-OSS-120B model
+    │   ├── config.json
+    │   ├── tokenizer.json
+    │   ├── tokenizer_config.json
+    │   └── model-*.safetensors
+    ├── Qwen-Qwen3-Next-80B-A3B-Instruct-FP8/  # Other models (optional)
+    └── RedHatAI-Llama-3.3-70B-Instruct-FP8-dynamic/
+```
+
+6. **Verify PVC and Model Files:**
+
+```bash
+# Check PVC status
+kubectl get pvc -n llm-d-bench models-storage
+
+# Expected output:
+# NAME             STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS
+# models-storage   Bound    pvc-12030792-0d00-4d8f-9955-3416dbc1e034   1Ti        RWO            ibmc-vpc-block-10iops-tier
+
+# Verify model files (after deployment)
+kubectl exec -n llm-d-bench -l llm-d.ai/role=decode -- \
+  ls -lh /model-cache/models/openai-gpt-oss-120b
+```
+
+7. **How LLM-D Uses the PVC:**
+
+The model service pods mount the PVC at `/model-cache` as **read-only**:
+
+```yaml
+volumeMounts:
+  - mountPath: /model-cache
+    name: model-storage
+    readOnly: true
+```
+
+The model URI in `override_ms_gptoss120b_model.yaml` references this mount:
+```yaml
+modelArtifacts:
+  uri: "pvc://models-storage/models/openai-gpt-oss-120b"
+  #      └─────┬──────┘ └──────────┬──────────────────┘
+  #        PVC name     Path within PVC
+```
+
+This resolves to `/model-cache/models/openai-gpt-oss-120b` inside the pod.
 
 #### Local Machine Prerequisites (for running deploy scripts)
 

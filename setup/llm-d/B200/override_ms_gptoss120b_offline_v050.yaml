@@ -7,10 +7,15 @@ decode:
     - --max-num-batched-tokens
     - '8192'
     - --max-num-seqs
-    - '320'
+    - '1080'
     - --compilation-config
-    - '{"max_cudagraph_capture_size": 2048}'
+    - '{"max_cudagraph_capture_size": 2048, "pass_config":{"fuse_allreduce_rms":true,"eliminate_noops":true}}'
     - --async-scheduling
+    - --kv-cache-dtype
+    - 'fp8'
+    env:
+    - name: VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8
+      value: "1"
     image: ghcr.io/llm-d/llm-d-cuda:v0.5.0
     livenessProbe:
       failureThreshold: 3

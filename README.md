@@ -30,9 +30,9 @@ For detailed submission results, see: [MLCommons Inference Results](https://mlco
 
 Detailed setup and configuration instructions for each benchmark:
 
-- **GPT-OSS-120B**: See [harness/README.md](mlperf-inference-6.0-redhat/harness/README.md) for harness setup and configuration
-- **Whisper**: See [speech2text/Whisper_Setup.md](mlperf-inference-6.0-redhat/speech2text/Whisper_Setup.md) for setup instructions
-- **Qwen3-VL**: See [multimodal/qwen3-vl/README.md](mlperf-inference-6.0-redhat/multimodal/qwen3-vl/README.md) for setup instructions
+- **GPT-OSS-120B**: See [harness/README.md](harness/README.md) for harness setup and configuration
+- **Whisper**: See [speech2text/Whisper_Setup.md](speech2text/Whisper_Setup.md) for setup instructions
+- **Qwen3-VL**: See [multimodal/qwen3-vl/README.md](multimodal/qwen3-vl/README.md) for setup instructions
 
 ## Repository Structure
 

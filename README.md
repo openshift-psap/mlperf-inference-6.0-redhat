@@ -8,8 +8,8 @@ This repository contains our MLPerf Inference v6.0 benchmark results and setup d
 
 | Model Category | Model | GPU Configuration | Offline Scenario (throughput) | Server Scenario (throughput) | Software Stack |
 |---------------|-------|-------------------|-------------------------------|------------------------------|----------------|
-| **Vision Model** | Qwen3-VL-235B-A22B | 8x H200 | 11.05 samples/sec | 18.02 samples/sec | RHEL, vLLM |
-| | | 8x B200 | 67.86 samples/sec | 79.04 samples/sec | RHEL, vLLM |
+| **Vision Model** | Qwen3-VL-235B-A22B | 8x H200 | 18.02 samples/sec | 11.05 samples/sec | RHEL, vLLM |
+| | | 8x B200 | 79.04 samples/sec | 67.86 samples/sec | RHEL, vLLM |
 | **Reasoning Model** | gpt-oss-120b | 8x H200 | 28,680 tokens/sec | 24,103.19 tokens/sec | OpenShift, llm-d, vLLM |
 | | | 8x B200 (180 GB) | 93,070.70 tokens/sec | 71,588.13 tokens/sec | OpenShift, llm-d, vLLM |
 | **Speech2Text** | Whisper | 2x L40S | 3,646.91 tokens/sec | N/A | RHEL, vLLM |
